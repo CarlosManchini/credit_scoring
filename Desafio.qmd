@@ -1,0 +1,803 @@
+---
+title: "Credit Scoring"
+date: "2024-02-28" # The date shown on the document
+author: "Carlos Manchini"
+format:
+  revealjs:
+    logo: credit-scoring-logo.png
+editor: visual
+toc: true
+header-includes:
+  - '<style type="text/css">
+h1.title {
+  font-size: 49px;
+  color: DarkGreen;
+}
+</style>'
+---
+
+## Base de Dados {style="font-size: 20px"}
+
+```{r}
+library(dplyr); library(DT)
+
+data <- read.csv("base_modelo.csv", sep = ",", na.strings = "NA") %>% 
+  mutate(AnoMes = as.Date(paste(safra, "01", sep=""), format="%Y%m%d"))
+
+DT::datatable(data %>% mutate(AnoMes = format(AnoMes, "%Y-%m")), 
+              options = list(pageLength = 15,
+                             initComplete = JS(
+                               "function(settings, json) {",
+                               "  $('.dataTables_wrapper').find('table').css({'line-height': '0.7', 'font-size': '16px'});", 
+                               "}"
+                             ) ))
+```
+
+## Análise Exploratória {style="font-size: 18px"}
+
+*Target* e Médias das Variáveis Preditoras
+
+```{r}
+data %>%
+    group_by(y) %>%
+    summarise(Contagem = n(),
+              Prop = round(Contagem / nrow(data), 4) * 100,
+              across(VAR_1:VAR_78, ~ round(mean(., na.rm = TRUE),1), .names = "{.col}")) %>% 
+  knitr::kable() %>% 
+  kableExtra::kable_styling(font_size = 16,position = 'left')
+```
+
+::: {style="margin-bottom: 10px;"}
+:::
+
+```{r}
+#| echo: true
+set.seed(369) 
+index <- caret::createDataPartition(data$y, p = 0.7, list = FALSE) 
+train0 <- data[index, ] ; cat(train0$y %>% table %>% prop.table*100)
+test0 <- data[-index, ] ; cat(test0$y %>% table %>% prop.table*100)
+```
+
+```{css}
+ code {
+   font-size: 1.1em;
+ }
+```
+
+```{css}
+   <style>
+  /* Define um line-height menor para a tag <br> */
+  br {
+    line-height: 0.1    ; /* Ajuste o valor conforme necessário para reduzir o espaço */
+  }
+</style>
+<br>
+```
+<center>
+```{r}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+library(plotly)
+
+ts_y <- ggplot(data, aes(x = AnoMes, fill = factor(y))) +
+  geom_bar(position = "dodge", width = 25) +
+  scale_fill_manual(values = c("darkgrey", "springgreen3"), labels = c("0", "1")) +
+  labs(x = "Data", y = "Número de Casos", title = "Série Temporal - Target - 2014", fill = "Target") +
+  scale_x_date(date_labels = "%b", date_breaks = "1 month") 
+
+ggplotly(ts_y, height = 400, align="center")
+```
+</center>
+
+<!-- ```{css} -->
+
+<!--  code { -->
+
+<!--    font-size: 1.4em; -->
+
+<!--  } -->
+
+<!-- ``` -->
+
+<!-- ```{css} -->
+
+<!--    <style> -->
+
+<!--   /* Define um line-height menor para a tag <br> */ -->
+
+<!--   br { -->
+
+<!--     line-height: 0.1    ; /* Ajuste o valor conforme necessário para reduzir o espaço */ -->
+
+<!--   } -->
+
+<!-- </style> -->
+
+<!-- <br> -->
+
+<!-- ``` -->
+
+## Variáveis {style="font-size: 16px"}
+
+**Proporção de Valores Ausentes e Information Value (IV)**
+
+```{r,results='hide'}
+library(Information)
+
+IV <- create_infotables(data = train0, y = "y", valid = test0) # binning automático
+
+IV_table <- IV$Summary %>% select(Variable, IV)
+
+prop_na <- colMeans(is.na(data)) %>% sort(decreasing = TRUE) %>% round(3)*100
+NA_table <- data.frame(Variable = names(prop_na), `Prop.NA` = prop_na)
+
+Tabela <- left_join(IV_table, NA_table, by = "Variable")
+```
+
+<center>
+
+```{r}
+DT::datatable(Tabela, 
+              width = 559, 
+              options = list(pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
+```
+
+</center>
+
+## Variáveis {style="font-size: 16px"}
+
+```{css}
+ code {
+   font-size: 1.1em;
+ }
+```
+
+```{r}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+
+# Gráfico VAR_1
+plot_VAR_1 <- ggplot(aggregate(VAR_1 ~ AnoMes, data = data, FUN = sum), aes(x = AnoMes, y = VAR_1)) +
+  geom_line(color="springgreen3", size=1.1) + labs(x = "", y = "VAR_1", title = "Comportamento das Variáveis VAR_1:3") +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month")
+pl1 <- ggplotly(plot_VAR_1)
+  
+# Gráfico VAR_2
+plot_VAR_2 <- ggplot(aggregate(VAR_2 ~ AnoMes, data = data, FUN = sum), aes(x = AnoMes, y = VAR_2)) +
+  geom_line(color="springgreen3", size=1.1) + labs(x = "", y = "VAR_2") +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month")
+pl2 <- ggplotly(plot_VAR_2)
+
+# Gráfico VAR_3
+plot_VAR_3 <- ggplot(aggregate(VAR_3 ~ AnoMes, data = data, FUN = sum), aes(x = AnoMes, y = VAR_3)) +
+  geom_line(color="springgreen3", size=1.1) + labs(x = "", y = "VAR_3") +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month")
+pl3 <- ggplotly(plot_VAR_3)
+
+subplot(pl1, pl2, pl3, nrows = 3, shareY = FALSE, margin = .05, titleY = T, widths = .99, heights = c(.33,.33,.33))
+```
+
+## Seleção (Correlação) {style="font-size: 16px"}
+
+```{css}
+ code {
+   font-size: 1.4em;
+ }
+```
+
+::: {style="margin-bottom: 15px;"}
+:::
+
+```{r, fig.show='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+bestiv <- IV$Summary[IV$Summary$IV >= 0.1, ]$Variable
+
+train <- train0 %>% subset(select = c("id","y", bestiv))
+test <- test0 %>% subset(select = c("y",bestiv))
+
+corrplot::corrplot(cor(train %>% select(id, y, bestiv[1:20]), use = "pairwise.complete.obs"),
+                   method = "circle",
+                   type = "upper",
+                   diag = TRUE, 
+                   tl.col = "black")
+```
+
+```{r, echo=FALSE}
+corrplot::corrplot(cor(train %>% select(id, y, bestiv[1:20],-VAR_32), use = "pairwise.complete.obs"),
+                   method = "circle", 
+                   type = "upper", 
+                   diag = TRUE, 
+                   tl.col = "black")
+```
+
+## Seleção (Clusterização) {style="font-size: 16px"}
+
+```{r}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+library(ClustOfVar)
+
+dendro <- hclustvar(X.quanti = as.data.frame(train[,!(names(train) %in% c("id","y"))])) 
+plot(dendro, type="tree")
+```
+
+## Seleção (Clusterização) {style="font-size: 16px"}
+
+```{css}
+ code {
+   font-size: 1.3em;
+ }
+```
+
+```{r, results='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+library(reshape2) ; library(plyr)
+
+nvars <- length(dendro[dendro$height<0.5]) #critério agregacao
+part_init <- cutreevar(dendro, nvars)$cluster
+kmeans <- kmeansvar(X.quanti = as.data.frame(train[,!(names(train) %in% c("id","y"))]),init = part_init)
+clusters <- cbind.data.frame(melt(kmeans$cluster), row.names(melt(kmeans$cluster)))
+names(clusters) <- c("Cluster", "Variable")
+clusters <- join(clusters, IV$Summary, by="Variable", type="left")
+clusters <- clusters[order(clusters$Cluster),]
+clusters$Rank <- stats::ave(-clusters$AdjIV, clusters$Cluster, FUN=rank)
+VARIAVEISclust <- subset(clusters, Rank==1) #%in% 1:2
+
+DT::datatable(clusters %>% select(Cluster, Variable, IV, Rank), 
+              width = 559,
+              options = list(pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
+```
+
+<center>
+
+```{r}
+DT::datatable(clusters %>% select(Cluster, Variable, IV, Rank), width = 559,
+              options = list(pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
+```
+
+</center>
+
+## Seleção Final {style="font-size: 16px"}
+
+```{css}
+ code {
+   font-size: 1.3em;
+ }
+```
+
+```{r, fig.show='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+bestiv_clust <- VARIAVEISclust$Variable 
+
+train2 <- train %>% select("y", all_of(bestiv_clust))
+test2 <- test %>% select("y", all_of(bestiv_clust))
+
+corrplot::corrplot(cor(train2, use = "pairwise.complete.obs"), 
+                   method = "circle", 
+                   type = "upper", 
+                   diag = TRUE, 
+                   tl.col = "black", 
+                   addCoef.col = "black", 
+                   number.cex = .6)
+```
+
+```{r, echo=FALSE}
+corrplot::corrplot(cor(train2 %>% select(-VAR_32), use = "pairwise.complete.obs"), 
+                   method = "circle", 
+                   type = "upper", 
+                   diag = TRUE, 
+                   tl.col = "black", 
+                   addCoef.col = "black", 
+                   number.cex = .7)
+```
+
+## Binning {style="font-size: 16px"}
+
+```{r, echo=FALSE, results='hide'}
+library(scorecard)
+break1 <- list(VAR_1=c("missing","5", "30", "80", "140"))
+bin_1 <- woebin(train2 %>% select(y,VAR_1), y="y", positive=1, breaks_list = break1)
+plotsbinwoe <- woebin_plot(bin_1, line_value = "woe", line_color='blue', bar_color=c('springgreen3','gray'))
+```
+
+```{css}
+ code {
+   font-size: 1.4em;
+ }
+```
+
+::: columns
+::: {.column width="50%"}
+#### **Categorização automática**
+
+```{r, eval=FALSE, echo=TRUE,results='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+library(scorecard)
+
+bin1 <- woebin(train2, y="y")
+plotsbin <- woebin_plot(bin1, line_color='blue', bar_color=c('gray', 'springgreen3'))
+plotsbinwoe <- woebin_plot(bin1, line_value = "woe", line_color='blue', bar_color=c('springgreen3','gray'))
+ggplotly(plotsbinwoe$VAR_1)
+```
+:::
+
+::: {.column width="50%"}
+#### **Definição Manual**
+
+```{r, results='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código" 
+{breaks <- list(
+  VAR_1=c("missing%,%5", "30", "80", "140"), 
+  VAR_6=c("missing%,%300", "800", "1400"), 
+  VAR_20=c("5", "9", "11"),
+  VAR_47=c("missing","20"),
+  VAR_32=c("0.09063413815", "0.1338329127"),
+  VAR_19=c("missing%,%1", "13", "23" ),
+  VAR_18=c("missing","15", "25", "65"), 
+  VAR_17=c("missing","1000", "1400", "3200", "4800"), 
+  VAR_43=c("missing", "8", "28"),
+  VAR_65=c("missing","500", "1100", "1900"),
+  VAR_37=c("missing","2", "6", "20"),
+  VAR_77=c("missing", "10"),
+  VAR_57=c("30", "41", "46", "53"),
+  VAR_14=c("missing","350", "650", "1100"),
+  VAR_78=c("missing","1")
+)}
+
+bin_adj <- woebin(train2, y="y", positive=1, breaks_list = breaks)
+bin_adj_test <- woebin(test2, y="y", positive=1, breaks_list = breaks)
+
+plotsbin_adj <- woebin_plot(bin_adj, line_color='blue', bar_color=c('springgreen3','gray'))
+plotsbin_adjwoe <- woebin_plot(bin_adj, line_value = "woe", line_color='blue', bar_color=c('springgreen3','gray'))
+
+ggplotly(plotsbin_adjwoe$VAR_1)
+```
+:::
+:::
+
+```{r}
+uno<-ggplotly(plotsbinwoe$VAR_1)
+dos<-ggplotly(plotsbin_adjwoe$VAR_1)
+uno <- layout(uno, title = "VAR_1 (iv: 0.5354)") 
+dos <- layout(dos, title = "VAR_1 (iv:0.5354)                                                           VAR_1 (iv: 0.5342)")
+subplot(uno, dos, nrows = 1) %>% 
+   layout(legend = list(orientation = "h", x = 0.4, y = -0.1), shareY=T, titleY=T)
+```
+
+```{r}
+knitr::kable(bin_adj$VAR_1[,1:9]) %>% 
+  kableExtra::kable_styling(font_size = 15, position = 'left')
+```
+
+## Binning {style="font-size: 16px"}
+
+```{r, echo=FALSE, results='hide'}
+library(scorecard)
+bin_37 <- woebin(train2 %>% select(y,VAR_37), y="y", positive=1)
+plotsbinwoe <- woebin_plot(bin_37, line_value = "woe", line_color='blue', bar_color=c('springgreen3','gray'))
+```
+
+```{css}
+ code {
+   font-size: 1.4em;
+ }
+```
+
+::: columns
+::: {.column width="50%"}
+#### **Categorização automática**
+
+```{r, eval=FALSE, echo=TRUE,results='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código"
+ggplotly(plotsbinwoe$VAR_37)
+```
+:::
+
+::: {.column width="50%"}
+#### **Definição Manual**
+
+```{r, results='hide'}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código" 
+ggplotly(plotsbin_adjwoe$VAR_37)
+```
+:::
+:::
+
+```{r}
+uno<-ggplotly(plotsbinwoe$VAR_37)
+dos<-ggplotly(plotsbin_adjwoe$VAR_37)
+uno <- layout(uno, title = "VAR_37 (iv: 0.104)") 
+dos <- layout(dos, title = "VAR_37 (iv: 0.104)                                                           VAR_37 (iv: 0.1034)")
+subplot(uno, dos, nrows = 1) %>% 
+   layout(legend = list(orientation = "h", x = 0.4, y = -0.05), shareY=T, titleY=T)
+```
+
+```{r}
+knitr::kable(bin_adj$VAR_37[,1:9]) %>% 
+  kableExtra::kable_styling(font_size = 15, position = 'left')
+```
+
+## Modelo {style="font-size: 16px"}
+
+
+::: columns
+::: {.column width="50%"}
+
+
+```{r, results='hide'}
+train_woe <- woebin_ply(train2 %>% select(-VAR_18), bin_adj) 
+test_woe <- woebin_ply(test2 %>% select(-VAR_18), bin_adj_test) 
+
+logistic <- glm(y ~ ., family = binomial(link="logit"), data = train_woe)  
+logstep <- step(logistic, direction="both", trace=F) #stepwise
+summary(logstep) 
+```
+
+```{r,echo=FALSE, css='font-size: 24px;'}
+# library(knitr)
+m2 <- eval(logstep$call)
+summary_table <- summary(m2)$coefficients %>% round(3) 
+summary_table <- summary_table %>% cbind(OddsRatio=c(NA,exp(summary_table[2:10,1])))
+summary_table <- summary_table %>% cbind(Chance=(summary_table[,5]-1)*100)
+knitr::kable(summary_table, "html") %>%
+  kableExtra::kable_styling(font_size = 14)
+```
+::: 
+
+::: {.column width="50%"}
+
+<br>
+
+<br> 
+
+<br>
+
+```{r, fig.show='hide', results='hide'}
+m2 <- eval(logstep$call)
+
+train_pred <- predict(m2, train_woe, type="response")
+test_pred <- predict(logstep, newdata = test_woe, type="response") 
+
+tabelam2<-perf_eva(list(train=train2$y, test=test2$y), pred=list(train=train_pred, test=test_pred))
+# knitr::kable(tabelam2$binomial_metric$train)
+# knitr::kable(tabelam2$binomial_metric$train %>% rbind(tabelam2$binomial_metric$test))
+
+```
+
+```{r}
+knitr::kable(cbind(Dados=c("Treino","Teste"),tabelam2$binomial_metric$train %>% rbind(tabelam2$binomial_metric$test) %>% round(4)))
+```
+
+:::
+:::
+
+```{r, fig.height=3.5, fig.align='center'}
+oi<-perf_eva(list(train=train2$y, test=test2$y), pred=list(train=train_pred, test=test_pred), show_plot = c("ks","roc"))
+```
+
+## Diagnóstico     {style="font-size: 16px"}
+
+<center>
+<font size="4"> 
+**Validação Cruzada**
+</font>
+
+```{r, css='font-size: 24px;'}
+CV <- perf_cv(train_woe, y = 'y', no_folds = 10, binomial_metric = c('ks', 'auc','mse')) 
+```
+
+::: {columns}
+::: {.column width="33%"}
+#### KS
+```{r}
+CV$ks %>% knitr::kable() %>%
+  kableExtra::kable_styling(font_size = 13)
+```
+:::
+
+::: {.column width="33%"}
+#### AUC
+```{r}
+CV$auc %>% knitr::kable() %>%
+  kableExtra::kable_styling(font_size = 13)
+```
+:::
+
+::: {.column width="33%"}
+#### MSE
+```{r}
+CV$mse %>% knitr::kable() %>%
+  kableExtra::kable_styling(font_size = 13)
+```
+:::
+:::
+
+<br>
+
+<font size="4"> 
+
+
+::: {columns}
+::: {.column width="29%"}
+**Teste de Goldfeld-Quandt** (Homocedasticidade)
+```{r}
+lmtest::gqtest(logstep)
+```
+:::
+
+::: {.column width="22%"}
+**VIF **(Variance Inflation Factor)
+```{r}
+vif(logstep, merge_coef = F) 
+```
+</font>
+:::
+
+::: {.column width="40%"}
+
+<span style="font-size: 20px; font-weight: bold;">Matriz de Confusão</span><span style="margin-right: 69px;"> </span>
+<font size="4.2"> 
+
+```{r}
+test_pred <- predict(logstep, newdata = test_woe, type="response") 
+caret::confusionMatrix(data = factor(c(ifelse(test_pred>.5,1,0))), reference = factor(c(test2$y)))
+```
+:::
+:::
+</font>
+
+</center>
+
+
+<!-- ## Diagnóstico {style="font-size: 16px"} -->
+
+<!-- ```{r} -->
+<!-- library(h2o) -->
+<!-- localH2O = h2o.init() -->
+<!-- dth2o = as.h2o(train_woe) -->
+<!-- # h2o.glm lasso  -->
+<!-- fit = h2o.glm(y="y", training_frame=dth2o,  -->
+<!-- family="binomial", nfolds=5, alpha=1, lambda_search=TRUE) # summary(fit) -->
+<!-- # variable importance -->
+<!-- library(data.table) -->
+<!-- varimp = data.table(h2o.varimp(fit))[names!=""][!is.na(coefficients) & coefficients > 0 & sign == "POS"] -->
+<!-- var_sel3 = c(varimp$names, "y") -->
+<!-- ``` -->
+
+
+
+<!-- ```{r, results='hide'} -->
+<!-- psi <- perf_psi(score = list(train=scorecard_ply(train2, scorecard(bin_adj, logstep, points0 = 600, odds0 = 1/20, pdo=20)),  -->
+<!--                              test=scorecard_ply(test2, scorecard(bin_adj, logstep, points0 = 600, odds0 = 1/20, pdo=20))),  -->
+<!--          label = list(train=train2$y, test=test2$y)) -->
+
+<!-- # gains <- gains_table(score = unlist(list(train=scorecard_ply(train2, scorecard(bin_adj, logstep, points0 = 600, odds0 = 1/20, pdo=20)), -->
+<!-- #                                          test=scorecard_ply(test2, scorecard(bin_adj, logstep, points0 = 600, odds0 = 1/20, pdo=20)))), -->
+<!-- #                      label = unlist(list(train=train2$y, test=test2$y))) -->
+<!-- # gains[,c(2,3,5,6,9,10)] %>% knitr::kable() -->
+
+<!-- ``` -->
+
+
+## Escoragem {style="font-size: 16px"}
+
+<center>
+```{r}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Expandir código" 
+card <- scorecard(bin_adj, logstep, points0 = 600, odds0 = 1/20, pdo=20)
+
+exp_eta <- exp(predict(logstep)) 
+factor <- 20/log(2) 
+offset <- 600-factor*log(20) 
+
+data.frame(odds=exp_eta, 
+           prob_calc=round(exp_eta/(exp_eta+1),2), 
+           prob_pred=round(train_pred,2),
+           scorecard = scorecard_ply(train2, card, print_step = 0), 
+           score_calc = round(offset-factor*predict(logstep),2)) %>% 
+  DT::datatable(width = 599,
+                options = list(pageLength = 8, searching = FALSE, lengthChange = FALSE))
+```
+
+![](psi.png){ width=600px }
+
+</center>
+
+<!-- ```{r, fig.height=8} -->
+
+<!-- library(ROCR)  -->
+
+<!-- predicao_rocr <- prediction(pred1, data1$trueCBK) -->
+
+<!-- curva_roc <- performance(predicao_rocr, "tpr", "fpr") -->
+
+<!-- # Calcule a AUC -->
+
+<!-- area_curva_roc <- performance(predicao_rocr, "auc")@y.values[[1]] -->
+
+<!-- # Plote a curva ROC -->
+
+<!-- plot(curva_roc, main = "Curva ROC", col = "blue", lwd = 2) -->
+
+<!-- abline(a = 0, b = 1, lwd = 2, col = "red")  # Adicione a linha de referência -->
+
+<!-- ``` -->
+
+<!-- <!-- </font>  -->
+
+--\> <!-- ::: --> <!-- ::: -->
+
+<!-- ## Previsões - *chargeback* {style="font-size: 19px"} -->
+
+<!-- <br> -->
+
+<!-- Transações do mesmo cliente no mês seguinte -->
+
+<!-- ```{r} -->
+
+<!-- data2 <- read_excel("C:/Users/Pichau/Desktop/JOB newEra/Stone Co/Missao_Stone_-_Dados_de_trx.xlsx",  -->
+
+<!--                     col_types = c("skip", "skip", "numeric", "text", "skip", "date","skip"),sheet = 2)%>% mutate( -->
+
+<!--                       Data = as.Date(DataHora), -->
+
+<!--                       Hora = format(DataHora, format = "%H:%M:%S"), -->
+
+<!--                       HoraInt = hour(DataHora), -->
+
+<!--                       Periodo = case_when( -->
+
+<!--                         between(hour(DataHora), 0, 5) ~ "Madrugada", -->
+
+<!--                         between(hour(DataHora), 6, 11) ~ "Manha", -->
+
+<!--                         between(hour(DataHora), 12, 17) ~ "Tarde", -->
+
+<!--                         between(hour(DataHora), 18, 23) ~ "Noite", -->
+
+<!--                         TRUE ~ NA # Hora com problema -->
+
+<!--                       ), DiaSemana = wday(DataHora, label = TRUE, week_start = 1)) -->
+
+<!-- pred2 <- predict(reg1, data2 %>% select(Valor,HoraInt,Periodo), type="response") -->
+
+<!-- data2$CBK_prev = round(pred2,3) -->
+
+<!-- DT::datatable(data2 %>% select(DataHora,Cartão,Valor,HoraInt,Periodo,CBK_prev))#, width = 460, height = 250) %>% DT::formatStyle(columns = colnames(.), fontSize = '50%') -->
+
+<!-- ``` -->
+
+<!-- ## Regras de Negócio {style="font-size: 19px"} -->
+
+<!-- -   Entre 9260 cartões utilizados no mês de maio, bloquear novas compras de 169 cartões cujos **todas** transações retornaram chargeback (Há 189 cartões com CBK) -->
+
+<!-- <center> -->
+
+<!-- ```{r} -->
+
+<!-- data1 %>% group_by(Cartão) %>% filter(all(CBK=="Sim")) %>% select(Cartão,Valor,HoraInt,Periodo,CBK) %>% DT::datatable(width = 650,options = list(pageLength = 4,searching = FALSE, lengthChange = FALSE)) -->
+
+<!-- ``` -->
+
+<!-- 22 Transações barradas em abril com valor total de 3247.78 -->
+
+<!-- ```{r} -->
+
+<!-- cart<-data1 %>% group_by(Cartão) %>% filter(any(CBK=="Sim")) %>% pull(Cartão) %>% unique -->
+
+<!-- data2 %>% filter(Cartão %in% cart) %>% select(Cartão,Valor,HoraInt,Periodo,CBK_prev) %>% DT::datatable(width = 650,options = list(pageLength = 4,searching = FALSE, lengthChange = FALSE)) -->
+
+<!-- ``` -->
+
+<!-- </center> -->
+
+<!-- ## Regras de Negócio {style="font-size: 19px"} -->
+
+<!-- <center> -->
+
+<!-- <!-- # ```{r} -->
+
+--\>
+
+<!-- <!-- # cat(data2 %>% filter(CBK_prev>=.4) %>% select(Cartão,Valor,HoraInt,Periodo,CBK_prev) %>% pull(Valor) %>% sum) -->
+
+--\>
+
+<!-- <!-- # ``` -->
+
+--\>
+
+<!-- -   Bloquear transações com probabilidade de chargeback maior que 20% de cartões com antecedentes -->
+
+<!-- ```{r} -->
+
+<!-- cart2<-data1 %>% group_by(Cartão) %>% filter(any(CBK=="Sim")) %>% pull(Cartão) %>% unique -->
+
+<!-- data2 %>% filter(CBK_prev>=.2) %>% filter(Cartão %in% cart2) %>% select(Cartão,Valor,HoraInt,Periodo,CBK_prev) %>% DT::datatable(width = 650,options = list(pageLength = 2,searching = FALSE, lengthChange = FALSE)) -->
+
+<!-- ``` -->
+
+<!-- ```{css} -->
+
+<!--    <style> -->
+
+<!--   /* Define um line-height menor para a tag <br> */ -->
+
+<!--   br { -->
+
+<!--     line-height: 0.1    ; /* Ajuste o valor conforme necessário para reduzir o espaço */ -->
+
+<!--   } -->
+
+<!-- </style> -->
+
+<!-- <br> -->
+
+<!-- ``` -->
+
+<!-- -   Bloquear transações com probabilidade de chargeback maior que 40% (limiar adaptável) -->
+
+<!-- ```{r} -->
+
+<!-- data2 %>% filter(CBK_prev>=.4) %>% select(Cartão,Valor,HoraInt,Periodo,CBK_prev) %>% DT::datatable(width = 650,options = list(pageLength = 5)) -->
+
+<!-- ``` -->
+
+<!-- 30 Transações barradas em abril totalizando 32702.4 -->
+
+<!-- </center> -->
+
+<!-- ## Regras de Negócio {style="font-size: 19px"} -->
+
+<!-- -   Entre todas probabilidades obtidas, considere as 5% maiores para bloqueio (proporção de CBK em maio) -->
+
+<!-- <center> -->
+
+<!-- ```{r} -->
+
+<!-- data2 %>% filter(CBK_prev>quantile(CBK_prev, 0.96)) %>% select(Cartão,Valor,HoraInt,Periodo,CBK_prev) %>% arrange(desc(CBK_prev)) %>% DT::datatable(width = 650,options = list(pageLength = 5)) -->
+
+<!-- ``` -->
+
+<!-- 589 Transações barradas totalizando valor de 200346.9 -->
+
+<!-- </center> -->
+
+<!-- <br> -->
+
+<!-- -   Transações realizadas pelo cliente no período da tarde, prioritariamente entre 15-16h devem ser monitoradas pois há um padrão evidente nesse horário ( [Referência](#horascbk) ) -->
+
+<!-- ggplot(data1 %>% filter(CBK=="Não"), aes(x = DiaSemana)) + -->
+
+<!--   geom_histogram(stat="count", fill = "springgreen3") +  -->
+
+<!--   labs(title = "Histograma - Dia da Semana", y = "Contagem") +  -->
+
+<!--   theme(axis.text = element_text(size = 11), text = element_text(size = 12)) -->
+
+<!-- ggplot(data1 %>% filter(CBK=="Não"), aes(x = Periodo)) + -->
+
+<!--   geom_histogram(stat="count", fill = "springgreen3") +  -->
+
+<!--   labs(title = "Histograma - Período ", y = "Contagem") +  -->
+
+<!--   theme(axis.text = element_text(size = 11), text = element_text(size = 12)) -->
