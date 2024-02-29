@@ -2,8 +2,8 @@
 
 Este repositório contém os recursos e resultados da modelagem de credit scoring utilizando uma regressão logística por WoE (Weight of Evidence), bem como uma variedade de análises exploratórias e diagnósticos. O modelo fornece o risco de crédito de um cliente através da probabilidade de inadimplência e consequentemente da escoragem destes.
 
-**Para visualizar a análise completa com tabelas e gráficos interativos, acesse https://carlosmanchini.github.io/credit_scoring/Desafio.html **
-<small>Obs.: Se a resolução do seu monitor for Widescreen talvez precise redimensionar a janela do seu navegador para algo como 4:3 para visualizar completamente o conteúdo. </small>
+** Para visualizar a análise completa com tabelas e gráficos interativos, acesse https://carlosmanchini.github.io/credit_scoring/Desafio.html **  <br>
+<sub>Obs.: Se a resolução do seu monitor for Widescreen talvez precise redimensionar a janela do seu navegador para algo como 4:3 para visualizar completamente o conteúdo. </sub>
 
 ### Sumário
 
@@ -11,7 +11,8 @@ Este repositório contém os recursos e resultados da modelagem de credit scorin
 2. [Correlação](#correlação)
 3. [Clusterização](#clusterização)
 4. [Binning](#binning)
-5. [Diagnóstico](#diagnóstico)
+5. [Modelagem](#modelagem)
+6. [Diagnóstico](#diagnóstico)
 
 #### Análise Exploratória de Variáveis
 
@@ -40,7 +41,12 @@ Através dessa abordagem é possível definir os NA (valores ausentes) em uma ca
 
 #### Diagnóstico
 
-Nesta etapa, realizamos diagnósticos para avaliar a qualidade do modelo, incluindo métricas de avaliação, como KS, AUC-ROC, MSE, Gini, entre outros.
+Nesta etapa, realizamos diagnósticos para avaliar a qualidade do modelo, incluindo métricas de avaliação, como KS, AUC-ROC, MSE, Gini, matriz de confusão, entre outros.
 Ainda, foi realizada validação cruzada, testes estatísticos, VIF para confirmar a adequabilidade do modelo. Para avaliar estabilidade, gerei um gráfico de PSI (Population Stability Index) comparando as distribuições das populações do treino e de teste, o qual demonstra em que não há mudanças significativas no comportamento dos clientes.
 
 Por fim, é apresentado o scorecard com a probabilidade de cada cliente virar inadimplente juntamente com seu score estimado. 
+
+<p align="center">
+<img src="print_modelo.png" width="800">
+</p>
+Acesso completo em https://carlosmanchini.github.io/credit_scoring/Desafio.html
