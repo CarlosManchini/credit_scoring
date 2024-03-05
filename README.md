@@ -1,4 +1,4 @@
-## Modelagem de Credit Scoring com Regressão Logística por WoE
+## Modelagem de Credit Scoring com Regressão Logística via WoE
 
 Este repositório contém os recursos e resultados da modelagem de credit scoring utilizando uma regressão logística por WoE (Weight of Evidence), bem como uma variedade de análises exploratórias e diagnósticos. O modelo fornece o risco de crédito de um cliente através da probabilidade de inadimplência e consequentemente da escoragem destes.
 
