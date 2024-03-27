@@ -1,10 +1,10 @@
 ## Modelagem de Credit Scoring com Regressão Logística via WoE
 
-Este repositório contém os recursos e resultados da modelagem de credit scoring utilizando uma regressão logística por WoE (Weight of Evidence), bem como uma variedade de análises exploratórias e diagnósticos. O modelo fornece o risco de crédito de um cliente através da probabilidade de inadimplência e consequentemente da escoragem destes.
+Este repositório contém os recursos e resultados da modelagem de credit scoring utilizando uma regressão logística por WoE (Weight of Evidence), bem como uma variedade de análises exploratórias e diagnósticos. O modelo fornece o risco de crédito de um cliente através da probabilidade de inadimplência e scoring.
 
   
-**Para visualizar a análise completa com tabelas e gráficos interativos, acesse [este link](https://carlosmanchini.github.io/credit_scoring/Desafio.html).**  <br>
-<sub>Obs.: Se a resolução do seu monitor for Widescreen talvez precise redimensionar a janela do navegador para algo como 4:3 para visualizar completamente o conteúdo. </sub>
+**Para visualizar a análise interativa, acesse [este link](https://carlosmanchini.github.io/credit_scoring/Desafio.html).**  <br>
+<sub>Obs.: Se a resolução do seu monitor for Widescreen talvez precise redimensionar a janela do navegador para ~4:3 para visualizar o conteúdo por completo. </sub>
 
 
 ### Sumário
@@ -50,4 +50,4 @@ Por fim, é apresentado o scorecard com a probabilidade de cada cliente virar in
 <p align="center">
 <img src="print_modelo.png" width="800">
 </p>
-Acesso completo em https://carlosmanchini.github.io/credit_scoring/Desafio.html
+Acesso a análise completa em https://carlosmanchini.github.io/credit_scoring/Desafio.html
